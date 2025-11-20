@@ -1,0 +1,94 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User tier enum
+enum UserTier {
+  FREE
+  BASIC
+  PRO
+}
+
+// Message role enum
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+model User {
+  id                    String      @id @default(uuid())
+  telegram_chat_id      BigInt      @unique @index
+  telegram_username     String?
+  name                  String
+  email                 String?
+  tier                  UserTier    @default(FREE)
+  gemini_api_key_encrypted    String?
+  e2b_api_key_encrypted       String?
+  message_count         Int         @default(0)
+  message_quota         Int         @default(100)
+  quota_reset_date      DateTime
+  is_active             Boolean     @default(true)
+  created_at            DateTime    @default(now())
+  updated_at            DateTime    @updatedAt
+
+  // Relations
+  conversations         Conversation[]
+  usage_logs            UsageLog[]
+
+  @@map("users")
+}
+
+model Conversation {
+  id            String    @id @default(uuid())
+  user_id       String    @index
+  thread_id     String    @unique @index
+  title         String?
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  // Relations
+  user          User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  messages      Message[]
+
+  @@map("conversations")
+}
+
+model Message {
+  id               String        @id @default(uuid())
+  conversation_id  String        @index
+  role             MessageRole
+  content          String
+  tokens_used      Int?
+  created_at       DateTime      @default(now())
+  deleted_at       DateTime?
+
+  // Relations
+  conversation     Conversation  @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
+
+  @@map("messages")
+}
+
+model UsageLog {
+  id               String   @id @default(uuid())
+  user_id          String   @index
+  operation_type   String
+  tokens_used      Int?
+  cost             Decimal?
+  success          Boolean  @default(true)
+  error_message    String?
+  created_at       DateTime @default(now())
+
+  // Relations
+  user             User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("usage_logs")
+}
